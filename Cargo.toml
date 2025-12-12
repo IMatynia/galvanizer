@@ -1,0 +1,3 @@
+[workspace]
+members = ["galvanizer_config", "galvanizer_cli", "galvanizer_store"]
+resolver = "3"
