@@ -10,7 +10,7 @@
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
 
-    rust = pkgs.rust-bin.stable."1.92.0";
+    rust = pkgs.rust-bin.stable."1.77.0";
   in
   {
     devShells.${system}.default = pkgs.mkShell {
