@@ -14,7 +14,7 @@
   {
     devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
-        rustup
+        rustc
         cargo
         just
         neovim
@@ -27,16 +27,6 @@
         pkg-config
         gcc
       ];
-
-
-
-      shellHook = ''
-        unset TEMP TMP TEMPDIR TMPDIR
-        if [ -z "$ENTERED_ZSH" ]; then
-          export ENTERED_ZSH=1
-          exec ${pkgs.zsh}/bin/zsh -i
-        fi
-      '';
     };
   };
 }
