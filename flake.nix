@@ -1,4 +1,3 @@
-
 {
   description = "Rust development template";
 
@@ -7,7 +6,6 @@
   };
 
   outputs = { self, nixpkgs, ... }:
-
   let
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
@@ -25,10 +23,12 @@
         zsh
         cargo-tarpaulin
       ];
+
       nativeBuildInputs = with pkgs; [
         pkg-config
         gcc
       ];
+
     };
   };
 }
