@@ -1,32 +1,39 @@
+
 {
-  description = "Rust development template";
+  description = "Rust dev shell";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    fenix.url = "github:nix-community/fenix";
   };
 
-  outputs = { self, nixpkgs, ... }:
+  outputs = { self, nixpkgs, fenix }:
   let
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
-  in
-  {
+
+    rust = fenix.packages.${system}.stable.withComponents [
+      "cargo"
+      "rustc"
+      "rustfmt"
+      "clippy"
+      "rust-src"
+    ];
+  in {
     devShells.${system}.default = pkgs.mkShell {
-      packages = with pkgs; [
-      	rustc
-	cargo
-        just
-        neovim
-        bacon
-        zsh
-        cargo-tarpaulin
+      packages = [
+        rust
+        pkgs.just
+        pkgs.neovim
+        pkgs.bacon
+        pkgs.zsh
+        pkgs.cargo-tarpaulin
       ];
 
-      nativeBuildInputs = with pkgs; [
-        pkg-config
-        gcc
+      nativeBuildInputs = [
+        pkgs.pkg-config
+        pkgs.gcc
       ];
-
     };
   };
 }
