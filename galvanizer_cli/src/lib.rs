@@ -1,3 +1,11 @@
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::panic,
+    )
+)]
+
 pub mod cli;
 pub mod cli_command_handlers;
 pub mod cli_errors;

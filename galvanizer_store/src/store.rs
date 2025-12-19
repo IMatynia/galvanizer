@@ -81,7 +81,7 @@ impl UninitializedStore {
         // Read only valid entries in subdirectories
         let store = self.0;
         {
-            let mut data_store_cache_lock = store.data_store_cache.lock().unwrap();
+            let mut data_store_cache_lock = store.data_store_cache.lock().expect("mutex");
             Self::update_hash_set_with_cache_contents(
                 &store
                     .config
@@ -121,7 +121,7 @@ impl Store {
         // check if the file was modified since last backup (if the file has an entry)
         // exclusive access to current snapshot to check last update date (read only)
         {
-            let current_snapshot = current_snapshot.lock().unwrap();
+            let current_snapshot = current_snapshot.lock().expect("mutex");
             if let Some(entry) =
                 current_snapshot.get_entry_for_file_in_root(parent_root.name(), path_identifier)
                 && fs_last_modified <= entry.last_modified()
@@ -139,7 +139,7 @@ impl Store {
 
         // heavy lifting - exclusive access to data_store_cache for checking and updating contents
         {
-            let mut data_store_cache = self.data_store_cache.lock().unwrap();
+            let mut data_store_cache = self.data_store_cache.lock().expect("mutex");
             if !data_store_cache.contains(&hash_str) {
                 data_store_cache.insert(hash_str.clone());
                 drop(data_store_cache);
@@ -154,7 +154,7 @@ impl Store {
 
         // update snapshot entry
         {
-            let mut current_snapshot = current_snapshot.lock().unwrap();
+            let mut current_snapshot = current_snapshot.lock().expect("mutex");
             let entries = current_snapshot.get_root_entries_mut(parent_root.name());
             let new_snapshot_entry = SnapshotEntry::new(hash_str, fs_last_modified);
             entries.insert(path_identifier.to_string(), new_snapshot_entry);
@@ -210,7 +210,7 @@ mod tests {
             None,
             vec![mock_root()],
         )
-        .unwrap()
+        .expect("tests")
     }
 
     fn mock_store() -> UninitializedStore {

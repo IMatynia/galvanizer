@@ -6,15 +6,15 @@ mod tests {
         VERSION,
         cli::restore::RestoreArgs,
         commands::{
-            backup::{self, run},
+            backup::{self},
             restore,
         },
         tests::{
             fs_utils::{
                 TestFile, assert_files_are_correct, build_file_structure, clean_ws,
-                examples::{all_examples_at_once, complex_dir_structure, one_small_file},
+                examples::all_examples_at_once,
             },
-            init_test_logger, resources,
+            init_test_logger,
         },
     };
     use galvanizer_config::{

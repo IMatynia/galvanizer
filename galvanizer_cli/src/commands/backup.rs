@@ -52,7 +52,7 @@ fn handle_root(
         // Send to workers
         // If channel is full, this blocks until workers consume more
         trace!("Sending file {path:?} to be processed!");
-        tx.send((path.to_path_buf(), root.clone())).unwrap();
+        tx.send((path.to_path_buf(), root.clone())).map_err(CLIError::ChannelDisconnected)?;
     }
     Ok(())
 }
@@ -95,7 +95,7 @@ pub fn run(config: Config) -> CLIResult<()> {
     });
 
     // save the new snapshot
-    let snapshot = snaphot_arc.lock().unwrap();
+    let snapshot = snaphot_arc.lock().expect("mutex");
     Snapshot::save_snaphot(&snapshot, &config).map_err(CLIError::SnapshotError)?;
     Ok(())
 }

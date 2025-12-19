@@ -22,7 +22,7 @@ pub fn first_time_config_customization_prompt(path: &Path) -> Result<(), ConfigL
                 .map_err(|e| format!("Invalid path: {e}"))
         })
         .interact_text()
-        .unwrap();
+        .expect("UI");
     // Unwrap, because we did validation earlier
     let store_root = PathBuf::from_str(&store_root).unwrap();
 
@@ -42,7 +42,7 @@ pub fn first_time_config_customization_prompt(path: &Path) -> Result<(), ConfigL
             })
             .default("".into())
             .interact_text()
-            .unwrap();
+            .expect("UI");
 
         if root_id.is_empty() {
             break;
@@ -60,7 +60,7 @@ pub fn first_time_config_customization_prompt(path: &Path) -> Result<(), ConfigL
             })
             .default("".into())
             .interact_text()
-            .unwrap();
+            .expect("UI");
 
         if backup_root.is_empty() {
             break;
@@ -78,12 +78,12 @@ pub fn first_time_config_customization_prompt(path: &Path) -> Result<(), ConfigL
         .default(1)
         .items(compressions)
         .interact()
-        .unwrap();
+        .expect("UI");
 
     let compression = match selection {
         0 => CompressionOptions::Disabled,
         1 => CompressionOptions::Snap,
-        _ => panic!("This cannot happen"),
+        _ => CompressionOptions::Disabled,
     };
 
     let default_config = Config::new(

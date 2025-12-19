@@ -133,11 +133,14 @@ pub fn run(config: Config, restoration_options: RestoreArgs) -> CLIResult<()> {
 
             debug!("Restoring root {}", parent_root.name());
 
-            for file_id in snapshot_arc
-                .get_rel_paths_for_root(parent_root.name())
-                .unwrap()
-            {
-                tx.send((file_id.to_owned(), parent_root.clone()));
+            if let Some(files) = snapshot_arc.get_rel_paths_for_root(parent_root.name()) {
+                for file_id in files {
+                    if let Err(_) = tx.send((file_id.to_owned(), parent_root.clone())) {
+                        error!("An error occured on sending tasks to workers!");
+                    }
+                }
+            } else {
+                error!("Invalid root found in config: {}", parent_root.name());
             }
         }
     });

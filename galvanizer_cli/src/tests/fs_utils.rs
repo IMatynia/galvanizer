@@ -55,7 +55,7 @@ pub mod examples {
             .chain(simple_subdirectory())
             .chain(complex_dir_structure())
             .chain(different_extensions())
-            .map(|x| x.clone())
+            .cloned()
     }
 
     pub fn one_empty_file() -> &'static [TestFile] {
