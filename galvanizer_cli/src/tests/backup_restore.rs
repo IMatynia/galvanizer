@@ -35,7 +35,8 @@ mod tests {
 
     #[test]
     fn test_backup_and_restore_simple() {
-        let files: Vec<TestFile> = one_small_file().into();
+        init_test_logger();
+        let files: Vec<TestFile> = all_examples_at_once().collect();
 
         let test_temp_dir = tempdir().unwrap();
         let data_root = test_temp_dir.path().to_path_buf().join("data");

@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use log::info;
+
 #[derive(Clone)]
 pub struct TestFile {
     pub path: &'static str,
@@ -17,6 +19,7 @@ impl TestFile {
 
 pub fn build_file_structure(root: &Path, files: &[TestFile]) {
     for f in files {
+        info!("Building file {}", f.path);
         let new_path = f.real_path(root);
         create_dir_all(new_path.parent().unwrap()).unwrap();
         fs::write(new_path, f.content).unwrap();
@@ -25,6 +28,7 @@ pub fn build_file_structure(root: &Path, files: &[TestFile]) {
 
 pub fn assert_files_are_correct(root: &Path, files: &[TestFile]) {
     files.iter().for_each(|f| {
+        info!("Checking file {}", f.path);
         let real_path = f.real_path(root);
         assert!(real_path.exists());
         assert_eq!(fs::read_to_string(real_path).unwrap(), f.content);

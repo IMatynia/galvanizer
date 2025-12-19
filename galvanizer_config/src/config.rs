@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf};
+use std::{fs::create_dir_all, io, path::PathBuf};
 
 use crate::{
     compression::CompressionOptions, root_definition::RootDefinition,
@@ -25,6 +25,7 @@ pub enum ConfigError {
     NoStoreCachePathAvailabile,
     FailedToCreateFolder(io::Error),
     PatternError(globset::Error),
+    OtherError(&'static str),
 }
 
 pub type ConfigResult<T> = Result<T, ConfigError>;
@@ -46,16 +47,10 @@ impl Config {
         };
 
         let path = config.get_store_cache_path()?;
-        fs::DirBuilder::new()
-            .recursive(true)
-            .create(path)
-            .map_err(ConfigError::FailedToCreateFolder)?;
+        create_dir_all(path).map_err(ConfigError::FailedToCreateFolder)?;
 
         let path = config.get_snaphots_path()?;
-        fs::DirBuilder::new()
-            .recursive(true)
-            .create(path)
-            .map_err(ConfigError::FailedToCreateFolder)?;
+        create_dir_all(path).map_err(ConfigError::FailedToCreateFolder)?;
 
         Ok(config)
     }
@@ -67,20 +62,14 @@ impl Config {
     pub fn get_store_cache_path(&self) -> ConfigResult<PathBuf> {
         let mut p = self.get_root();
         p.push(DATA_STORE_FOLDER);
-        fs::DirBuilder::new()
-            .recursive(true)
-            .create(&p)
-            .map_err(ConfigError::FailedToCreateFolder)?;
+        create_dir_all(&p).map_err(ConfigError::FailedToCreateFolder)?;
         Ok(p)
     }
 
     pub fn get_snaphots_path(&self) -> ConfigResult<PathBuf> {
         let mut p = self.get_root();
         p.push(SNAPSHOTS_FOLDER);
-        fs::DirBuilder::new()
-            .recursive(true)
-            .create(&p)
-            .map_err(ConfigError::FailedToCreateFolder)?;
+        create_dir_all(&p).map_err(ConfigError::FailedToCreateFolder)?;
         Ok(p)
     }
 
@@ -92,10 +81,13 @@ impl Config {
             .join(prefix)
             .join(hash_str)
             .with_extension(CACHE_FILE_EXTENSION);
-        fs::DirBuilder::new()
-            .recursive(true)
-            .create(&path)
-            .map_err(ConfigError::FailedToCreateFolder)?;
+
+        let parent_dir = path.parent().ok_or(ConfigError::OtherError(
+            "Could not access cache store subfolder",
+        ))?;
+
+        create_dir_all(parent_dir).map_err(ConfigError::FailedToCreateFolder)?;
+
         Ok(path)
     }
 

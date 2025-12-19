@@ -11,6 +11,7 @@ pub enum StoreError {
     CannotReadStoreCacheFolder(io::Error),
     PathIdentifierError(&'static str),
     ErrorDuringHashEval(io::Error),
+    CriticalHashError,
     FileMetadataError(io::Error),
     CacheHandlerError(CacheHandlerError),
     StoreEntryNotFound,

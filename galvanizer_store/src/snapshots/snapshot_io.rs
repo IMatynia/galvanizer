@@ -45,18 +45,18 @@ impl Snapshot {
         let snapshots_dir = config
             .get_snaphots_path()
             .map_err(SnapshotError::ConfigError)?;
-        return Ok(snapshots_dir.join(id).with_extension("toml"));
+        Ok(snapshots_dir.join(id).with_extension("toml"))
     }
 
     pub fn load_snapshot_from_path(path: &Path) -> Result<Snapshot, SnapshotError> {
         let bytes = fs::read(path).map_err(SnapshotError::SnapshotIOError)?;
-        Ok(toml::from_slice(&bytes).map_err(SnapshotError::SnapshotDeserializationError)?)
+        toml::from_slice(&bytes).map_err(SnapshotError::SnapshotDeserializationError)
     }
 
     pub fn load_latest_latest_snapshot(config: &Config) -> Result<Snapshot, SnapshotError> {
         if let Some(path) = Self::find_latest_snapshot(config)? {
             // Load latest
-            return Self::load_snapshot_from_path(&path);
+            Self::load_snapshot_from_path(&path)
         } else {
             // No snapshots were found. Apparently there arent any!
             Ok(Snapshot::empty())

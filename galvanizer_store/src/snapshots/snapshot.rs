@@ -46,11 +46,11 @@ impl Snapshot {
     }
 
     pub fn get_root_ids(&self) -> impl Iterator<Item = &String> {
-        self.entries.keys().into_iter()
+        self.entries.keys()
     }
 
     pub fn get_rel_paths_for_root(&self, root_id: &str) -> Option<impl Iterator<Item = &String>> {
-        Some(self.entries.get(root_id)?.keys().into_iter())
+        Some(self.entries.get(root_id)?.keys())
     }
 }
 

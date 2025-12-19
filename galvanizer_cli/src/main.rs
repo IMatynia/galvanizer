@@ -1,4 +1,4 @@
-use clap::{Args, CommandFactory, Parser, Subcommand, error::ErrorKind};
+use clap::{CommandFactory, Parser, Subcommand, error::ErrorKind};
 use galvanizer_cli::{
     cli::{
         list::{ListArgs, ListCommands},

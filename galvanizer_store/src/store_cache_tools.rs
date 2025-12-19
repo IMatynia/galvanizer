@@ -1,4 +1,4 @@
-use base64::{Engine, prelude::BASE64_STANDARD_NO_PAD};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE};
 use chrono::{DateTime, Utc};
 use galvanizer_config::root_definition::RootDefinition;
 use sha2::{Digest, Sha512};
@@ -25,7 +25,8 @@ pub fn evaluate_file_sha512_hash(path: &Path) -> Result<String, io::Error> {
 
         hasher.update(&buffer[..bytes_read]);
     }
-    Ok(BASE64_STANDARD_NO_PAD.encode(hasher.finalize().as_slice()))
+
+    Ok(URL_SAFE.encode(hasher.finalize().as_slice()))
 }
 
 pub fn get_file_last_modified_date(path: &Path) -> Result<DateTime<Utc>, io::Error> {
@@ -64,7 +65,7 @@ mod tests {
         let hash = evaluate_file_sha512_hash(&path).unwrap();
         assert_eq!(
             hash,
-            "z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg"
+            "z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg_SpIdNs6c5H0NE8XYXysP-DGNKHfuwvY7kxvUdBeoGlODJ6-SfaPg=="
         );
     }
 
@@ -84,7 +85,7 @@ mod tests {
         let path = resources().join("example_files").join("20kb_file.txt");
         assert_eq!(
             evaluate_file_sha512_hash(&path).unwrap(),
-            "/A/grDZmXiRSsRdwVC7zr3cxkSZ/P57HaoCLcPIB2Lq80kIc5tQkRciM9+CPFV9SC3gnDwbKkl+qKycQp11XuQ"
+            "_A_grDZmXiRSsRdwVC7zr3cxkSZ_P57HaoCLcPIB2Lq80kIc5tQkRciM9-CPFV9SC3gnDwbKkl-qKycQp11XuQ=="
         );
     }
 }

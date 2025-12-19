@@ -22,9 +22,8 @@
 use std::{
     collections::HashSet,
     fs::{self, DirEntry},
-    mem::swap,
     path::Path,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -32,7 +31,6 @@ use crate::{
     store_cache_data_handler::StoreCacheDataHandler,
     store_cache_tools::{
         evaluate_file_sha512_hash, get_file_last_modified_date, get_path_identifier,
-        original_file_path_from_identifier,
     },
     store_error::{StoreError, StoreResult},
 };
@@ -136,7 +134,7 @@ impl Store {
         // Read file hash
         let hash_str = evaluate_file_sha512_hash(path).map_err(StoreError::ErrorDuringHashEval)?;
         if hash_str.is_empty() {
-            panic!("Hash is empty! This cannot happen.");
+            return Err(StoreError::CriticalHashError);
         }
 
         // heavy lifting - exclusive access to data_store_cache for checking and updating contents
@@ -185,6 +183,8 @@ mod tests {
             .filter_level(log::LevelFilter::Trace)
             .try_init();
     }
+    use std::sync::{Arc, Mutex};
+
     use galvanizer_config::{
         Config, compression::CompressionOptions, root_definition::RootDefinition,
         store_preferences::StorePreferences,
@@ -202,7 +202,7 @@ mod tests {
     }
 
     fn mock_config() -> Config {
-        let test_dir = resources().join("store_example");
+        let test_dir = resources().join("example_store");
         Config::new(
             "1.2.3".into(),
             StorePreferences::new(test_dir, None),
@@ -215,7 +215,7 @@ mod tests {
 
     fn mock_store() -> UninitializedStore {
         let config = mock_config();
-        Store::new_uninitialized_store(config, Snapshot::empty())
+        Store::new_uninitialized_store(config)
     }
 
     #[test]
@@ -228,10 +228,11 @@ mod tests {
             .join("subfolder")
             .join("some_file.txt");
         let root = mock_root();
-        store.store_file(&file_path, &root).unwrap();
-        store.store_file(&file_path, &root).unwrap();
-        store.store_file(&file_path, &root).unwrap();
+        let snapshot = Arc::new(Mutex::new(Snapshot::empty()));
+        store.store_file(&file_path, &root, &snapshot).unwrap();
+        store.store_file(&file_path, &root, &snapshot).unwrap();
+        store.store_file(&file_path, &root, &snapshot).unwrap();
 
-        println!("{:?}", store.current_snapshot);
+        println!("{:?}", snapshot.lock().unwrap());
     }
 }

@@ -5,7 +5,7 @@ pub mod commands;
 pub mod configuration_loading;
 pub mod first_time_config_prompt;
 
-pub const VERSION: &'static str = env!("CARGO_PKG_VERSION"); 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(test)]
 mod tests;
