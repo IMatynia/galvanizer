@@ -391,6 +391,7 @@ dependencies = [
  "log",
  "rayon",
  "serde",
+ "tempfile",
  "toml",
  "walkdir",
 ]

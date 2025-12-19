@@ -1,5 +1,10 @@
 use clap::{Args, CommandFactory, Parser, Subcommand, error::ErrorKind};
 use galvanizer_cli::{
+    cli::{
+        list::{ListArgs, ListCommands},
+        prune::{PruneArgs, PruneCommands},
+        restore::RestoreArgs,
+    },
     cli_errors::CLIError,
     commands::{backup, restore},
     configuration_loading::{ConfigLoadingErrors, load_app_config},
@@ -23,51 +28,11 @@ enum Commands {
     /// Create a new snapshot and run the backup
     Backup,
     /// Restore selected file or whole root or all roots
-    Restore {
-        /// Snapshot id to restore from
-        snapshot_id: String,
-        /// If defined, restores only this root
-        root_id: Option<String>,
-        /// If defined, restores only this file of the root
-        file_id: Option<String>,
-    },
+    Restore(RestoreArgs),
     /// List information related to the data store and config
     List(ListArgs),
     /// Removes all entried from the data store that are not associated with any snapshot
     Prune(PruneArgs),
-}
-
-#[derive(Debug, Args)]
-struct ListArgs {
-    #[command(subcommand)]
-    command: ListCommands,
-}
-
-#[derive(Debug, Subcommand)]
-enum ListCommands {
-    /// List all snapshots
-    Snapshots,
-    /// List all roots of a given snapshot
-    Roots { snapshot_id: String },
-    /// List all files from a root in a snapshot
-    File {
-        snapshot_id: String,
-        root_id: String,
-    },
-}
-
-#[derive(Debug, Args)]
-struct PruneArgs {
-    #[command(subcommand)]
-    command: PruneCommands,
-}
-
-#[derive(Debug, Subcommand)]
-enum PruneCommands {
-    /// Remove data that is not assigned to any of the snapshots
-    UnusedData,
-    /// Keeps last N snapshots
-    KeepSnapshots { n: u32 },
 }
 
 pub fn handle_config_errors(error: ConfigLoadingErrors) -> ! {
@@ -122,11 +87,7 @@ fn run(cli: Cli) {
     // cli commands parsing
     if let Err(e) = match cli.command {
         Commands::Backup => backup::run(config),
-        Commands::Restore {
-            snapshot_id,
-            root_id,
-            file_id,
-        } => restore::run(config, snapshot_id, root_id, file_id),
+        Commands::Restore(args) => restore::run(config, args),
         Commands::List(list_args) => match list_args.command {
             ListCommands::Snapshots => todo!(),
             ListCommands::Roots { snapshot_id } => todo!(),

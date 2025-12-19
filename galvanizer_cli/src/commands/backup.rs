@@ -1,13 +1,14 @@
 use galvanizer_config::{Config, root_definition::RootDefinition};
-use galvanizer_store::{
-    snapshots::snapshot_io::{load_latest_latest_snapshot, save_snaphot},
-    store::Store,
-};
+use galvanizer_store::{snapshots::snapshot::Snapshot, store::Store};
 use log::{error, trace};
 
 use crate::cli_errors::{CLIError, CLIResult};
 use crossbeam::channel::{self, Sender};
-use std::{path::PathBuf, thread::available_parallelism};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    thread::available_parallelism,
+};
 use walkdir::WalkDir;
 
 fn handle_root(
@@ -58,8 +59,11 @@ fn handle_root(
 
 pub fn run(config: Config) -> CLIResult<()> {
     // make a new snapshot
-    let snapshot = load_latest_latest_snapshot(&config).map_err(CLIError::SnapshotError)?;
-    let store = Store::new_uninitialized_store(config.clone(), snapshot)
+    let snapshot =
+        Snapshot::load_latest_latest_snapshot(&config).map_err(CLIError::SnapshotError)?;
+    let snaphot_arc = Arc::new(Mutex::new(snapshot));
+
+    let store = Store::new_uninitialized_store(config.clone())
         .initialize_hash_cache()
         .map_err(CLIError::StoreError)?;
     let cores = available_parallelism().map(|x| x.get()).unwrap_or(1);
@@ -71,10 +75,11 @@ pub fn run(config: Config) -> CLIResult<()> {
         for n in 0..cores {
             let rx = rx.clone();
             let mut store = store.clone();
+            let snapshot = snaphot_arc.clone();
             s.spawn(move |_| {
                 while let Ok((path, root)) = rx.recv() {
                     trace!("Worker {n} handling file {path:?}");
-                    if let Err(e) = store.store_file(&path, &root) {
+                    if let Err(e) = store.store_file(&path, &root, &snapshot) {
                         eprint!("W{n} => Store error: {e:?}");
                     }
                 }
@@ -90,7 +95,7 @@ pub fn run(config: Config) -> CLIResult<()> {
     });
 
     // save the new snapshot
-    let snapshot = store.pop_snapshot();
-    save_snaphot(snapshot, &config).map_err(CLIError::SnapshotError)?;
+    let snapshot = snaphot_arc.lock().unwrap();
+    Snapshot::save_snaphot(&snapshot, &config).map_err(CLIError::SnapshotError)?;
     Ok(())
 }

@@ -47,9 +47,6 @@ pub struct Store {
     /// Hashes of files already stored in the database
     data_store_cache: Arc<Mutex<HashSet<String>>>,
 
-    /// Current snapshot updated in parallel
-    current_snapshot: Arc<Mutex<Snapshot>>,
-
     /// Data handler
     cache_data_handler: Arc<StoreCacheDataHandler>,
 }
@@ -100,21 +97,21 @@ impl UninitializedStore {
 }
 
 impl Store {
-    pub fn new_uninitialized_store(
-        config: Config,
-        current_snapshot: Snapshot,
-    ) -> UninitializedStore {
+    pub fn new_uninitialized_store(config: Config) -> UninitializedStore {
         let config_arc = Arc::new(config);
-        let snaphot_arc = Arc::new(Mutex::new(current_snapshot));
         UninitializedStore(Store {
             config: Arc::clone(&config_arc),
             data_store_cache: Default::default(),
-            current_snapshot: snaphot_arc,
             cache_data_handler: Arc::new(StoreCacheDataHandler::new(Arc::clone(&config_arc))),
         })
     }
 
-    pub fn store_file(&mut self, path: &Path, parent_root: &RootDefinition) -> StoreResult<()> {
+    pub fn store_file(
+        &mut self,
+        path: &Path,
+        parent_root: &RootDefinition,
+        current_snapshot: &Arc<Mutex<Snapshot>>,
+    ) -> StoreResult<()> {
         // Query for last modified date
         let fs_last_modified =
             get_file_last_modified_date(path).map_err(StoreError::FileMetadataError)?;
@@ -126,7 +123,7 @@ impl Store {
         // check if the file was modified since last backup (if the file has an entry)
         // exclusive access to current snapshot to check last update date (read only)
         {
-            let current_snapshot = &self.current_snapshot.lock().unwrap();
+            let current_snapshot = current_snapshot.lock().unwrap();
             if let Some(entry) =
                 current_snapshot.get_entry_for_file_in_root(parent_root.name(), path_identifier)
                 && fs_last_modified <= entry.last_modified()
@@ -159,7 +156,7 @@ impl Store {
 
         // update snapshot entry
         {
-            let mut current_snapshot = self.current_snapshot.lock().unwrap();
+            let mut current_snapshot = current_snapshot.lock().unwrap();
             let entries = current_snapshot.get_root_entries_mut(parent_root.name());
             let new_snapshot_entry = SnapshotEntry::new(hash_str, fs_last_modified);
             entries.insert(path_identifier.to_string(), new_snapshot_entry);
@@ -168,37 +165,15 @@ impl Store {
         Ok(())
     }
 
-    pub fn restore_file(&self, file_id: &str, parent_root: &RootDefinition) -> StoreResult<()> {
-        let hash_str = {
-            let current_snapshot = self.current_snapshot.lock().unwrap();
-            current_snapshot
-                .get_entry_for_file_in_root(parent_root.name(), file_id)
-                .ok_or(StoreError::StoreEntryNotFound)?
-                .data_hash()
-                .to_string()
-        };
-
-        let destination = original_file_path_from_identifier(file_id, parent_root);
-
+    pub fn directly_restore_file(
+        &self,
+        hash_str: &str,
+        destination: &Path,
+    ) -> Result<(), StoreError> {
         self.cache_data_handler
-            .uncompress_and_restore(&destination, &hash_str)
+            .uncompress_and_restore(destination, hash_str)
             .map_err(StoreError::CacheHandlerError)?;
         Ok(())
-    }
-
-    pub fn get_snapshot(&self) -> MutexGuard<'_, Snapshot> {
-        self.current_snapshot.lock().unwrap()
-    }
-
-    pub fn swap_snapshot(&self, new_snapshot: &mut Snapshot) {
-        let lock = &mut *self.current_snapshot.lock().unwrap();
-        swap(lock, new_snapshot);
-    }
-
-    pub fn pop_snapshot(&self) -> Snapshot {
-        let mut replacement = Snapshot::empty();
-        self.swap_snapshot(&mut replacement);
-        replacement
     }
 }
 

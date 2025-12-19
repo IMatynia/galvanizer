@@ -8,6 +8,7 @@ pub type RootSnapshotEntries = HashMap<String, SnapshotEntry>;
 /// Represents all saved information for all roots. Contains a map that assigns a map of snapshot entries to each root and their file id.
 #[derive(Deserialize, Serialize)]
 pub struct Snapshot {
+    /// The key is the root id and it points to a map of snapshot entries, where the key is the relative path and the value is a SnapshotEntry.
     entries: HashMap<String, RootSnapshotEntries>,
 }
 
@@ -42,6 +43,14 @@ impl Snapshot {
 
     pub fn get_root_entries_mut(&mut self, root_id: &str) -> &mut RootSnapshotEntries {
         self.entries.entry(root_id.to_string()).or_default()
+    }
+
+    pub fn get_root_ids(&self) -> impl Iterator<Item = &String> {
+        self.entries.keys().into_iter()
+    }
+
+    pub fn get_rel_paths_for_root(&self, root_id: &str) -> Option<impl Iterator<Item = &String>> {
+        Some(self.entries.get(root_id)?.keys().into_iter())
     }
 }
 

@@ -6,6 +6,7 @@ use crate::store_cache_data_handler::CacheHandlerError;
 
 #[derive(Debug)]
 pub enum StoreError {
+    InvalidOptionProvided { detail: String },
     ConfigurationError(ConfigError),
     CannotReadStoreCacheFolder(io::Error),
     PathIdentifierError(&'static str),
