@@ -52,7 +52,8 @@ fn handle_root(
         // Send to workers
         // If channel is full, this blocks until workers consume more
         trace!("Sending file {path:?} to be processed!");
-        tx.send((path.to_path_buf(), root.clone())).map_err(CLIError::ChannelDisconnected)?;
+        tx.send((path.to_path_buf(), root.clone()))
+            .map_err(CLIError::ChannelDisconnected)?;
     }
     Ok(())
 }

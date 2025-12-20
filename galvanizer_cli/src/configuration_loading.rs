@@ -1,4 +1,4 @@
-use std::{env::home_dir, fs, io, path::PathBuf};
+use std::{fs, io, path::PathBuf};
 
 use galvanizer_config::{Config, config::ConfigError};
 
@@ -13,15 +13,7 @@ pub enum ConfigLoadingErrors {
     ConfigWriteIOError(io::Error),
 }
 
-fn default_config_path() -> Option<PathBuf> {
-    home_dir().map(|x| x.join(".galvanizer.toml"))
-}
-
-pub fn load_app_config(path: Option<PathBuf>) -> Result<Config, ConfigLoadingErrors> {
-    let path = path
-        .or(default_config_path())
-        .ok_or(ConfigLoadingErrors::CouldNotAccessHomeDirectory)?;
-
+pub fn load_app_config(path: PathBuf) -> Result<Config, ConfigLoadingErrors> {
     if !path.exists() {
         first_time_config_customization_prompt(&path)?;
     }

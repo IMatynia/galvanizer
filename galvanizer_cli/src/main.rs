@@ -1,15 +1,16 @@
 use clap::{CommandFactory, Parser, Subcommand, error::ErrorKind};
 use galvanizer_cli::{
-    cli::{
-        list::{ListArgs, ListCommands},
+    cli_errors::CLIError,
+    commands::{backup, list, restore},
+    configuration_loading::{ConfigLoadingErrors, load_app_config},
+    first_time_config_prompt::first_time_config_customization_prompt,
+    schemas::{
+        list::ListArgs,
         prune::{PruneArgs, PruneCommands},
         restore::RestoreArgs,
     },
-    cli_errors::CLIError,
-    commands::{backup, restore},
-    configuration_loading::{ConfigLoadingErrors, load_app_config},
 };
-use std::{path::PathBuf, process::exit};
+use std::{env::home_dir, path::PathBuf, process::exit};
 
 #[derive(Debug, Parser)]
 #[command(name = "galvanizer")]
@@ -33,6 +34,8 @@ enum Commands {
     List(ListArgs),
     /// Removes all entried from the data store that are not associated with any snapshot
     Prune(PruneArgs),
+    /// Reopen initial config setup dialog
+    NewConfig,
 }
 
 pub fn handle_config_errors(error: ConfigLoadingErrors) -> ! {
@@ -70,14 +73,21 @@ pub fn handle_cli_error(error: CLIError) -> ! {
     eprintln!("An error has occured: {error:?}");
     exit(1);
 }
-
+fn default_config_path() -> Option<PathBuf> {
+    home_dir().map(|x| x.join(".galvanizer.toml"))
+}
 fn run(cli: Cli) {
     env_logger::init();
 
     dbg!(&cli);
 
     // configuration
-    let config = match load_app_config(cli.config_path) {
+    let config_path = cli
+        .config_path
+        .or(default_config_path())
+        .expect("Failed to query for a default config location in your home directory!");
+
+    let config = match load_app_config(config_path.clone()) {
         Ok(c) => c,
         Err(e) => handle_config_errors(e),
     };
@@ -88,18 +98,17 @@ fn run(cli: Cli) {
     if let Err(e) = match cli.command {
         Commands::Backup => backup::run(config),
         Commands::Restore(args) => restore::run(config, args),
-        Commands::List(list_args) => match list_args.command {
-            ListCommands::Snapshots => todo!(),
-            ListCommands::Roots { snapshot_id } => todo!(),
-            ListCommands::File {
-                snapshot_id,
-                root_id,
-            } => todo!(),
-        },
+        Commands::List(list_args) => list::run(config, list_args.command),
         Commands::Prune(prune_args) => match prune_args.command {
             PruneCommands::UnusedData => todo!(),
             PruneCommands::KeepSnapshots { n } => todo!(),
         },
+        Commands::NewConfig => {
+            if let Err(e) = first_time_config_customization_prompt(&config_path) {
+                handle_config_errors(e);
+            }
+            Ok(())
+        }
     } {
         handle_cli_error(e);
     }

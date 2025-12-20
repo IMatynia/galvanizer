@@ -9,8 +9,8 @@ use galvanizer_store::{
 use log::{debug, error, trace};
 
 use crate::{
-    cli::restore::RestoreArgs,
     cli_errors::{CLIError, CLIResult},
+    schemas::restore::RestoreArgs,
 };
 
 #[derive(Debug)]
@@ -67,16 +67,8 @@ pub fn run(config: Config, restoration_options: RestoreArgs) -> CLIResult<()> {
     let restoration_options = Arc::new(restoration_options);
 
     // Load the snapshot
-    let snapshot = {
-        if let Some(snapshot_id) = &restoration_options.snapshot_id {
-            debug!("Loading snapshot {snapshot_id}");
-            Snapshot::load_snapshot_by_id(&config, snapshot_id.into())
-        } else {
-            debug!("Loading latest snapshot");
-            Snapshot::load_latest_latest_snapshot(&config)
-        }
-    }
-    .map_err(CLIError::SnapshotError)?;
+    let snapshot = Snapshot::load_by_id_or_latest(&config, restoration_options.snapshot_id.clone())
+        .map_err(CLIError::SnapshotError)?;
     let snapshot_arc = Arc::new(snapshot);
 
     debug!("Initializing store");
@@ -135,7 +127,7 @@ pub fn run(config: Config, restoration_options: RestoreArgs) -> CLIResult<()> {
 
             if let Some(files) = snapshot_arc.get_rel_paths_for_root(parent_root.name()) {
                 for file_id in files {
-                    if let Err(_) = tx.send((file_id.to_owned(), parent_root.clone())) {
+                    if tx.send((file_id.to_owned(), parent_root.clone())).is_err() {
                         error!("An error occured on sending tasks to workers!");
                     }
                 }

@@ -4,6 +4,7 @@ use galvanizer_config::{
     root_definition::RootDefinition, store_preferences::StorePreferences,
 };
 use std::{
+    env::home_dir,
     fs,
     path::{Path, PathBuf},
     str::FromStr,
@@ -12,10 +13,14 @@ use std::{
 use crate::configuration_loading::ConfigLoadingErrors;
 
 pub fn first_time_config_customization_prompt(path: &Path) -> Result<(), ConfigLoadingErrors> {
+    let default_loc = home_dir()
+        .ok_or(ConfigLoadingErrors::CouldNotAccessHomeDirectory)?
+        .join(".galvanizer_backup");
+
     println!("No config detected at {path:?}. Anwser these questions to create new setup!");
     let store_root: String = Input::new()
         .with_prompt("Backup store path")
-        .default("~/.galvanizer_backup".into())
+        .default(default_loc.display().to_string())
         .validate_with(|input: &String| {
             PathBuf::from_str(input)
                 .map(|_| ())
@@ -67,6 +72,7 @@ pub fn first_time_config_customization_prompt(path: &Path) -> Result<(), ConfigL
         }
 
         // Validation was done earlier
+        println!("Saved new root {}", &root_id);
         backup_roots.push((root_id, PathBuf::from_str(&backup_root).unwrap()));
     }
 

@@ -1,6 +1,7 @@
 use crate::snapshots::snapshot::{Snapshot, SnapshotError};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use galvanizer_config::Config;
+use log::debug;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -78,5 +79,18 @@ impl Snapshot {
         )
         .map_err(SnapshotError::SnapshotIOError)?;
         Ok(())
+    }
+
+    pub fn load_by_id_or_latest(
+        config: &Config,
+        id: Option<String>,
+    ) -> Result<Snapshot, SnapshotError> {
+        if let Some(snapshot_id) = id {
+            debug!("Loading snapshot {snapshot_id}");
+            Snapshot::load_snapshot_by_id(config, snapshot_id)
+        } else {
+            debug!("Loading latest snapshot");
+            Snapshot::load_latest_latest_snapshot(config)
+        }
     }
 }

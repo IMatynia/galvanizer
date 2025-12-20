@@ -11,10 +11,14 @@ pub enum ListCommands {
     /// List all snapshots
     Snapshots,
     /// List all roots of a given snapshot
-    Roots { snapshot_id: String },
+    Roots {
+        /// If no snapshot is defined, the newest one will be used
+        snapshot_id: Option<String>,
+    },
     /// List all files from a root in a snapshot
-    File {
-        snapshot_id: String,
+    Files {
+        /// If no snapshot is defined, the newest one will be used
         root_id: String,
+        snapshot_id: Option<String>,
     },
 }

@@ -4,11 +4,11 @@ mod tests {
 
     use crate::{
         VERSION,
-        cli::restore::RestoreArgs,
         commands::{
             backup::{self},
             restore,
         },
+        schemas::restore::RestoreArgs,
         tests::{
             fs_utils::{
                 TestFile, assert_files_are_correct, build_file_structure, clean_ws,
