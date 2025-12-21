@@ -4,10 +4,7 @@ mod tests {
 
     use crate::{
         VERSION,
-        commands::{
-            backup::{run::backup_command},
-            restore,
-        },
+        commands::{backup::run::backup_command, restore},
         schemas::restore::RestoreArgs,
         tests::{
             fs_utils::{

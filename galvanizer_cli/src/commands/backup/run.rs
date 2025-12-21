@@ -1,9 +1,3 @@
-use galvanizer_config::Config;
-use galvanizer_store::{
-    snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
-    store::StoreBuilder,
-};
-use log::error;
 use crate::{
     cli_errors::{CLIError, CLIResult},
     commands::backup::{
@@ -12,6 +6,12 @@ use crate::{
     },
 };
 use crossbeam::thread;
+use galvanizer_config::Config;
+use galvanizer_store::{
+    snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
+    store::StoreBuilder,
+};
+use log::error;
 
 pub fn backup_command(config: Config) -> CLIResult<()> {
     let old_snapshot =
