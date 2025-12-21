@@ -8,8 +8,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::store_error::{StoreError, StoreResult};
-
 // Returns a base64 encoded sha512 of the provided file
 pub fn evaluate_file_sha512_hash(path: &Path) -> Result<String, io::Error> {
     let mut file = File::open(path)?;
@@ -37,17 +35,14 @@ pub fn get_file_last_modified_date(path: &Path) -> Result<DateTime<Utc>, io::Err
 pub fn get_path_identifier<'a>(
     path: &'a Path,
     parent_root: &RootDefinition,
-) -> StoreResult<&'a str> {
-    let path_short = path.strip_prefix(parent_root.path()).map_err(|_| {
-        StoreError::PathIdentifierError("File is not within the current root directory!")
-    })?;
-    let path_identifier =
-        path_short
-            .as_os_str()
-            .to_str()
-            .ok_or(StoreError::PathIdentifierError(
-                "Failed to read path as utf-8 string",
-            ))?;
+) -> Result<&'a str, &'static str> {
+    let path_short = path
+        .strip_prefix(parent_root.path())
+        .map_err(|_| "File is not within the current root directory!")?;
+    let path_identifier = path_short
+        .as_os_str()
+        .to_str()
+        .ok_or("Failed to read path as utf-8 string")?;
     Ok(path_identifier)
 }
 

@@ -6,52 +6,51 @@
 /// <store_root>
 /// |
 /// |-> data_store
-/// |   |-> <hash prefix>
-/// |   |   |-> <hash of uncompressed file as filename> -> compressed content of a file identified by the hash
+/// |   |-> <base64 hash prefix>
+/// |   |   |-> <base64 hash of uncompressed file as filename> -> compressed content of a file identified by the hash
 /// |   |   |...
-/// |   |-> <hash prefix>
+/// |   |-> <base64 hash prefix>
 /// |   |...
 /// |-> snapshots
-///     |-> <snapshot date>
-///     |   |-> <root name>.toml -> file structure of the given root. Contains a list of relative paths, names and file hashes for lookup
-///     |   |-> <other root name>.toml
-///     |   |...
-///     |-> <another snapshot>
+///     |-> <snapshot date>.toml -> file structure of the given root. Contains a list of relative paths, names and file hashes for lookup
+///     |-> <another snapshot>.toml
 ///     | ...   
 /// ```
 use std::{
-    collections::HashSet,
     fs::{self, DirEntry},
     path::Path,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use crate::{
-    snapshots::{shapshot_entry::SnapshotEntry, snapshot::Snapshot},
-    store_cache_data_handler::StoreCacheDataHandler,
+    snapshots::{shapshot_delta::SnapshotDelta, shapshot_entry::SnapshotEntry},
+    store_cache_data_handler::compress_and_store_file,
     store_cache_tools::{
         evaluate_file_sha512_hash, get_file_last_modified_date, get_path_identifier,
     },
     store_error::{StoreError, StoreResult},
 };
+use dashmap::DashSet;
 use galvanizer_config::{Config, root_definition::RootDefinition};
 use log::debug;
 
+/// Internally thread-safe handler for the data store. Allows you to store a file safely and reliably.
 #[derive(Clone)]
 pub struct Store {
     /// Primary config
-    config: Arc<Config>,
+    config: Config,
 
     /// Hashes of files already stored in the database
-    data_store_cache: Arc<Mutex<HashSet<String>>>,
-
-    /// Data handler
-    cache_data_handler: Arc<StoreCacheDataHandler>,
+    data_store_cache: Arc<DashSet<String>>,
 }
 
-pub struct UninitializedStore(Store);
+pub struct StoreBuilder(Config);
 
-impl UninitializedStore {
+impl StoreBuilder {
+    pub fn new(config: Config) -> StoreBuilder {
+        StoreBuilder(config)
+    }
+
     pub fn store_cache_file_iterator(
         store_root: &Path,
     ) -> StoreResult<impl Iterator<Item = DirEntry>> {
@@ -65,11 +64,11 @@ impl UninitializedStore {
 
     fn update_hash_set_with_cache_contents(
         store_root: &Path,
-        set: &mut HashSet<String>,
+        set: &DashSet<String>,
     ) -> StoreResult<()> {
         Self::store_cache_file_iterator(store_root)?
             .flat_map(|x| x.path().file_stem().map(|s| s.to_owned()))
-            .map(|x| x.to_string_lossy().to_string())
+            .map(|x| x.display().to_string())
             .fold(set, |set, hash| {
                 set.insert(hash);
                 set
@@ -77,59 +76,36 @@ impl UninitializedStore {
         Ok(())
     }
     /// Updates store data chache contents. Make sure to update BEFORE sending a clone to the threaded/parallel context
-    pub fn initialize_hash_cache(self) -> StoreResult<Store> {
+    pub fn init_and_build(self) -> StoreResult<Store> {
         // Read only valid entries in subdirectories
-        let store = self.0;
-        {
-            let mut data_store_cache_lock = store.data_store_cache.lock().expect("mutex");
-            Self::update_hash_set_with_cache_contents(
-                &store
-                    .config
-                    .get_store_cache_path()
-                    .map_err(StoreError::ConfigurationError)?,
-                &mut data_store_cache_lock,
-            )?;
-        }
-        Ok(store)
+        let config = self.0;
+        let dashset: DashSet<String> = DashSet::new();
+        Self::update_hash_set_with_cache_contents(
+            &config
+                .get_store_cache_path()
+                .map_err(StoreError::ConfigurationError)?,
+            &dashset,
+        )?;
+        Ok(Store {
+            config,
+            data_store_cache: Arc::new(dashset),
+        })
     }
 }
 
 impl Store {
-    pub fn new_uninitialized_store(config: Config) -> UninitializedStore {
-        let config_arc = Arc::new(config);
-        UninitializedStore(Store {
-            config: Arc::clone(&config_arc),
-            data_store_cache: Default::default(),
-            cache_data_handler: Arc::new(StoreCacheDataHandler::new(Arc::clone(&config_arc))),
-        })
-    }
-
     pub fn store_file(
-        &mut self,
+        &self,
         path: &Path,
         parent_root: &RootDefinition,
-        current_snapshot: &Arc<Mutex<Snapshot>>,
-    ) -> StoreResult<()> {
+    ) -> StoreResult<SnapshotDelta> {
         // Query for last modified date
         let fs_last_modified =
             get_file_last_modified_date(path).map_err(StoreError::FileMetadataError)?;
 
         // Get path identifier str
-        let path_identifier = get_path_identifier(path, parent_root)?;
-
-        // get associated entry in the current snapshot
-        // check if the file was modified since last backup (if the file has an entry)
-        // exclusive access to current snapshot to check last update date (read only)
-        {
-            let current_snapshot = current_snapshot.lock().expect("mutex");
-            if let Some(entry) =
-                current_snapshot.get_entry_for_file_in_root(parent_root.name(), path_identifier)
-                && fs_last_modified <= entry.last_modified()
-            {
-                debug!("The file {path_identifier} has not been modified, skipping");
-                return Ok(());
-            }
-        }
+        let path_identifier =
+            get_path_identifier(path, parent_root).map_err(StoreError::PathIdentifierError)?;
 
         // Read file hash
         let hash_str = evaluate_file_sha512_hash(path).map_err(StoreError::ErrorDuringHashEval)?;
@@ -138,40 +114,18 @@ impl Store {
         }
 
         // heavy lifting - exclusive access to data_store_cache for checking and updating contents
-        {
-            let mut data_store_cache = self.data_store_cache.lock().expect("mutex");
-            if !data_store_cache.contains(&hash_str) {
-                data_store_cache.insert(hash_str.clone());
-                drop(data_store_cache);
-
-                debug!("New hash found: {hash_str}\nCompressing and storing the file");
-                // Compress and store the file
-                self.cache_data_handler
-                    .compress_and_store_file(path, &hash_str)
-                    .map_err(StoreError::CacheHandlerError)?;
-            }
+        if self.data_store_cache.insert(hash_str.clone()) {
+            debug!("New hash found: {hash_str}\nCompressing and storing the file");
+            // Compress and store the file
+            compress_and_store_file(&self.config, path, &hash_str)
+                .map_err(StoreError::CacheHandlerError)?;
         }
 
-        // update snapshot entry
-        {
-            let mut current_snapshot = current_snapshot.lock().expect("mutex");
-            let entries = current_snapshot.get_root_entries_mut(parent_root.name());
-            let new_snapshot_entry = SnapshotEntry::new(hash_str, fs_last_modified);
-            entries.insert(path_identifier.to_string(), new_snapshot_entry);
-        }
-        debug!("Updating snapshot record!");
-        Ok(())
-    }
-
-    pub fn directly_restore_file(
-        &self,
-        hash_str: &str,
-        destination: &Path,
-    ) -> Result<(), StoreError> {
-        self.cache_data_handler
-            .uncompress_and_restore(destination, hash_str)
-            .map_err(StoreError::CacheHandlerError)?;
-        Ok(())
+        Ok(SnapshotDelta {
+            root_id: parent_root.name().to_string(),
+            path_identifier: path_identifier.to_string(),
+            entry: SnapshotEntry::new(hash_str, fs_last_modified),
+        })
     }
 }
 
@@ -190,11 +144,7 @@ mod tests {
         store_preferences::StorePreferences,
     };
 
-    use crate::{
-        snapshots::snapshot::Snapshot,
-        store::{Store, UninitializedStore},
-        tests::resources,
-    };
+    use crate::{snapshots::snapshot::Snapshot, store::StoreBuilder, tests::resources};
 
     fn mock_root() -> RootDefinition {
         let test_backup = resources().join("example_files");
@@ -213,15 +163,15 @@ mod tests {
         .expect("tests")
     }
 
-    fn mock_store() -> UninitializedStore {
+    fn mock_store() -> StoreBuilder {
         let config = mock_config();
-        Store::new_uninitialized_store(config)
+        StoreBuilder::new(config)
     }
 
     #[test]
     fn test_store() {
         init();
-        let mut store = mock_store().initialize_hash_cache().unwrap();
+        let store = mock_store().init_and_build().unwrap();
 
         let file_path = resources()
             .join("example_files")
@@ -229,9 +179,9 @@ mod tests {
             .join("some_file.txt");
         let root = mock_root();
         let snapshot = Arc::new(Mutex::new(Snapshot::empty()));
-        store.store_file(&file_path, &root, &snapshot).unwrap();
-        store.store_file(&file_path, &root, &snapshot).unwrap();
-        store.store_file(&file_path, &root, &snapshot).unwrap();
+        store.store_file(&file_path, &root).unwrap();
+        store.store_file(&file_path, &root).unwrap();
+        store.store_file(&file_path, &root).unwrap();
 
         println!("{:?}", snapshot.lock().unwrap());
     }

@@ -17,8 +17,9 @@ pub enum ListCommands {
     },
     /// List all files from a root in a snapshot
     Files {
-        /// If no snapshot is defined, the newest one will be used
+        /// Root to list from
         root_id: String,
+        /// If no snapshot is defined, the newest one will be used
         snapshot_id: Option<String>,
     },
 }

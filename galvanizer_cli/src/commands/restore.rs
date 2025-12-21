@@ -3,23 +3,25 @@ use std::{sync::Arc, thread::available_parallelism};
 use crossbeam::channel;
 use galvanizer_config::{Config, root_definition::RootDefinition};
 use galvanizer_store::{
-    snapshots::snapshot::Snapshot, store::Store,
-    store_cache_tools::original_file_path_from_identifier, store_error::StoreError,
+    snapshots::snapshot::Snapshot,
+    store_cache_data_handler::{CacheHandlerError, uncompress_and_restore},
+    store_cache_tools::original_file_path_from_identifier,
 };
 use log::{debug, error, trace};
 
 use crate::{
     cli_errors::{CLIError, CLIResult},
+    commands::QUEUE_SIZE,
     schemas::restore::RestoreArgs,
 };
 
 #[derive(Debug)]
 pub enum RestoreErr {
     SkipBecauseCannotOverwrite,
-    SkipBecauseCannotDeleteFiles,
+    SkipBecauseCannotDeleteFiles, // TODO: split this into events
     SkipBecauseMissingFile,
     StoreEntryNotFound,
-    OtherError(StoreError),
+    CacheHandlerError(CacheHandlerError),
 }
 
 fn restore_a_file(
@@ -27,7 +29,7 @@ fn restore_a_file(
     parent_root: &RootDefinition,
     file_id: &str,
     restoration_options: &RestoreArgs,
-    store: &Store,
+    config: &Config,
 ) -> Result<(), RestoreErr> {
     let hash_str = snapshot
         .get_entry_for_file_in_root(parent_root.name(), file_id)
@@ -53,9 +55,8 @@ fn restore_a_file(
     }
 
     debug!("Restoring file {destination:?}");
-    store
-        .directly_restore_file(&hash_str, &destination)
-        .map_err(RestoreErr::OtherError)?;
+    uncompress_and_restore(config, &destination, &hash_str)
+        .map_err(RestoreErr::CacheHandlerError)?;
     Ok(())
 }
 
@@ -71,22 +72,17 @@ pub fn run(config: Config, restoration_options: RestoreArgs) -> CLIResult<()> {
         .map_err(CLIError::SnapshotError)?;
     let snapshot_arc = Arc::new(snapshot);
 
-    debug!("Initializing store");
-    let store = Store::new_uninitialized_store(config.clone())
-        .initialize_hash_cache()
-        .map_err(CLIError::StoreError)?;
-
     let cores = available_parallelism().map(|x| x.get()).unwrap_or(1);
     rayon::scope(|s| {
         // dirwalker result channel
-        let (tx, rx) = channel::bounded::<(String, RootDefinition)>(1024);
+        let (tx, rx) = channel::bounded::<(String, RootDefinition)>(QUEUE_SIZE);
 
         // spawn worker processes
         for n in 0..cores {
             let rx = rx.clone();
-            let store = store.clone();
             let snapshot = snapshot_arc.clone();
             let restoration_options = restoration_options.clone();
+            let config = config.clone();
             s.spawn(move |_| {
                 while let Ok((file_id, parent_root)) = rx.recv() {
                     trace!(
@@ -99,13 +95,10 @@ pub fn run(config: Config, restoration_options: RestoreArgs) -> CLIResult<()> {
                         &parent_root,
                         &file_id,
                         &restoration_options,
-                        &store,
+                        &config,
                     ) {
                         match e {
                             RestoreErr::StoreEntryNotFound => error!("No store entry found!"),
-                            RestoreErr::OtherError(store_error) => {
-                                error!("Error during restoration: {store_error:?}")
-                            }
                             _ => debug!("{e:?}"),
                         }
                     }

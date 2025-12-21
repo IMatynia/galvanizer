@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnapshotEntry {
     data_hash: String,
     last_modified: DateTime<Utc>,

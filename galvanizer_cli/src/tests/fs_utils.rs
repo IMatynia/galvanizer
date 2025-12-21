@@ -35,6 +35,15 @@ pub fn assert_files_are_correct(root: &Path, files: &[TestFile]) {
     })
 }
 
+pub fn assert_files_are_missing(root: &Path, files: &[TestFile]) {
+    files.iter().for_each(|f| {
+        info!("Checking file {}", f.path);
+        let real_path = f.real_path(root);
+        assert!(!real_path.exists());
+        assert_eq!(fs::read_to_string(real_path).unwrap(), f.content);
+    })
+}
+
 pub fn clean_ws(root: &Path) {
     remove_dir_all(root).unwrap();
 }
