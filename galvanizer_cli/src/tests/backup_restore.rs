@@ -5,7 +5,7 @@ mod tests {
     use crate::{
         VERSION,
         commands::{
-            backup::{self},
+            backup::{self, run::backup_command},
             restore,
         },
         schemas::restore::RestoreArgs,
@@ -48,7 +48,7 @@ mod tests {
         assert_files_are_correct(&data_root, &files);
 
         let config = make_config_basic(data_root.clone(), store_root);
-        backup::run(config.clone()).unwrap();
+        backup_command(config.clone()).unwrap();
 
         clean_ws(&data_root);
 
@@ -84,7 +84,7 @@ mod tests {
         assert_files_are_correct(&data_root, &files);
 
         let config = make_config_basic(data_root.clone(), store_root);
-        backup::run(config.clone()).unwrap();
+        backup_command(config.clone()).unwrap();
 
         clean_ws(&data_root);
 
@@ -120,7 +120,7 @@ mod tests {
         assert_files_are_correct(&data_root, &files);
 
         let config = make_config_basic(data_root.clone(), store_root);
-        backup::run(config.clone()).unwrap();
+        backup_command(config.clone()).unwrap();
 
         clean_ws(&data_root);
 

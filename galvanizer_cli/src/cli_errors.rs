@@ -12,6 +12,8 @@ pub enum CLIError {
     StoreError(StoreError),
     DirWalkError(walkdir::Error),
     ChannelDisconnected(SendError<(PathBuf, RootDefinition)>),
+
+    TheadJoinError,
 }
 
 pub type CLIResult<T> = Result<T, CLIError>;
