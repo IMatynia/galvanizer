@@ -1,26 +1,13 @@
-use std::{io, thread::available_parallelism};
+use std::thread::available_parallelism;
 
-use crate::commands::backup::{
-    backup_command_schemas::{BackupEvent, BackupJob},
-    backup_root_walker::root_walker,
-};
+use crate::commands::backup::backup_command_schemas::BackupEvent;
 use crossbeam::channel::Sender;
-use galvanizer_config::{Config, config::ConfigError};
+use galvanizer_config::Config;
 use galvanizer_store::{
+    root_walker::{WalkResult, walk_all_files_in_backup_roots},
     snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
     store::Store,
 };
-
-#[derive(Debug)]
-pub enum WalkerError {
-    WalkDirError(walkdir::Error),
-    RootConfigurationError(ConfigError),
-    RootDoesNotExist(String),
-    PathIdentifierError(&'static str),
-    ModificationDateReadError(io::Error),
-}
-
-type WalkerResult<T> = Result<T, WalkerError>;
 
 pub fn walker_thread_task(
     conifg: Config,
@@ -36,7 +23,7 @@ pub fn walker_thread_task(
         .build()
         .expect("Could not build worker pool");
 
-    for job in root_walker(&conifg, old_snapshot) {
+    for job in walk_all_files_in_backup_roots(&conifg, old_snapshot) {
         match job {
             Ok(job) => {
                 let store_clone = store.clone();
@@ -45,25 +32,28 @@ pub fn walker_thread_task(
 
                 // Worker closure
                 worker_pool.spawn(move || match job {
-                    BackupJob::AddCoppiedEntry(snapshot_delta) => {
-                        event_tx_clone.send(BackupEvent::NoChanges);
-                        snapshot_tx_clone.send(snapshot_delta);
+                    WalkResult::UnchangedFile(snapshot_delta) => {
+                        let _ = event_tx_clone.send(BackupEvent::NoChanges);
+                        let _ = snapshot_tx_clone.send(snapshot_delta);
                     }
-                    BackupJob::ProcessFileFurther { path, root } => {
-                        event_tx_clone.send(BackupEvent::StartBackup {
+                    WalkResult::NewFile { path, root } => {
+                        let _ = event_tx_clone.send(BackupEvent::StartBackup {
                             path: path.clone(),
-                            root: root.clone(),
+                            root_id: root.name().to_string(),
                         });
                         match store_clone.store_file(&path, &root) {
                             Ok(delta) => {
-                                event_tx_clone.send(BackupEvent::FinishBackup { path, root });
-                                snapshot_tx_clone.send(delta);
+                                let _ = event_tx_clone.send(BackupEvent::FinishBackup {
+                                    path,
+                                    root_id: root.name().to_string(),
+                                });
+                                let _ = snapshot_tx_clone.send(delta);
                             }
                             Err(e) => {
-                                event_tx_clone.send(BackupEvent::BackupError {
+                                let _ = event_tx_clone.send(BackupEvent::BackupError {
                                     error: e,
                                     path,
-                                    root,
+                                    root_id: root.name().to_string(),
                                 });
                             }
                         };
@@ -71,7 +61,7 @@ pub fn walker_thread_task(
                 });
             }
             Err(e) => {
-                event_tx.send(BackupEvent::WalkerError(e));
+                let _ = event_tx.send(BackupEvent::WalkerError(e));
             }
         }
     }

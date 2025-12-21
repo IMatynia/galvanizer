@@ -1,30 +1,21 @@
+use galvanizer_store::{root_walker::WalkerError, store_error::StoreError};
 use std::path::PathBuf;
-
-use galvanizer_config::root_definition::RootDefinition;
-use galvanizer_store::{snapshots::shapshot_delta::SnapshotDelta, store_error::StoreError};
-
-use crate::commands::backup::walker_thread::WalkerError;
 
 #[derive(Debug)]
 pub enum BackupEvent {
     StartBackup {
         path: PathBuf,
-        root: RootDefinition,
+        root_id: String,
     },
     BackupError {
         error: StoreError,
         path: PathBuf,
-        root: RootDefinition,
+        root_id: String,
     },
     FinishBackup {
         path: PathBuf,
-        root: RootDefinition,
+        root_id: String,
     },
     WalkerError(WalkerError),
     NoChanges,
-}
-
-pub enum BackupJob {
-    AddCoppiedEntry(SnapshotDelta),
-    ProcessFileFurther { path: PathBuf, root: RootDefinition },
 }

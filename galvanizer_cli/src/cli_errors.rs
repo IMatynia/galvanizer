@@ -1,7 +1,4 @@
-use std::path::PathBuf;
-
-use crossbeam::channel::SendError;
-use galvanizer_config::{config::ConfigError, root_definition::RootDefinition};
+use galvanizer_config::config::ConfigError;
 use galvanizer_store::{snapshots::snapshot::SnapshotError, store_error::StoreError};
 use walkdir;
 
@@ -11,8 +8,7 @@ pub enum CLIError {
     ConfigError(ConfigError),
     StoreError(StoreError),
     DirWalkError(walkdir::Error),
-    ChannelDisconnected(SendError<(PathBuf, RootDefinition)>),
-
+    ChannelDisconnected(String),
     TheadJoinError,
 }
 

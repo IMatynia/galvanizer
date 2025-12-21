@@ -1,17 +1,30 @@
-use std::path::PathBuf;
-use galvanizer_config::Config;
-use galvanizer_store::{
+use crate::{
     snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
     store_cache_tools::{get_file_last_modified_date, get_path_identifier},
 };
-use rayon::iter::Either;
+use either::Either;
+use galvanizer_config::{Config, config::ConfigError, root_definition::RootDefinition};
+use std::{io, path::PathBuf};
 use walkdir::WalkDir;
-use crate::commands::backup::{backup_command_schemas::BackupJob, walker_thread::WalkerError};
 
-pub fn root_walker<'a>(
+#[derive(Debug)]
+pub enum WalkerError {
+    WalkDirError(walkdir::Error),
+    RootConfigurationError(ConfigError),
+    RootDoesNotExist(String),
+    PathIdentifierError(&'static str),
+    ModificationDateReadError(io::Error),
+}
+
+pub enum WalkResult {
+    UnchangedFile(SnapshotDelta),
+    NewFile { path: PathBuf, root: RootDefinition },
+}
+
+pub fn walk_all_files_in_backup_roots<'a>(
     config: &'a Config,
     old_snapshot: &'a Snapshot,
-) -> impl Iterator<Item = Result<BackupJob, WalkerError>> + 'a {
+) -> impl Iterator<Item = Result<WalkResult, WalkerError>> + 'a {
     config.backup_roots().iter().flat_map(move |root| {
         let root = root.clone();
 
@@ -81,10 +94,10 @@ pub fn root_walker<'a>(
                             path_identifier: path_identifier.to_string(),
                             entry,
                         };
-                        return Some(Ok(BackupJob::AddCoppiedEntry(coppied_entry)));
+                        return Some(Ok(WalkResult::UnchangedFile(coppied_entry)));
                     }
 
-                    Some(Ok(BackupJob::ProcessFileFurther {
+                    Some(Ok(WalkResult::NewFile {
                         path,
                         root: root.clone(),
                     }))

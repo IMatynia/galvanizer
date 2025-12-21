@@ -425,6 +425,7 @@ dependencies = [
  "base64",
  "chrono",
  "dashmap",
+ "either",
  "env_logger",
  "galvanizer_config",
  "log",

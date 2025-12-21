@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::panic,))]
+pub mod root_walker;
 
 pub mod snapshots;
 pub mod store;
