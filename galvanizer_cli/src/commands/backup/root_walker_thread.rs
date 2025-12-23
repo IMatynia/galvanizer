@@ -1,19 +1,19 @@
-use std::thread::available_parallelism;
+use std::{sync::Arc, thread::available_parallelism};
 
 use crossbeam::channel::Sender;
 use galvanizer_config::Config;
 use galvanizer_store::{
     root_walker::{WalkResult, walk_all_files_in_backup_roots},
     snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
-    store::Store,
+    store_cache::{file_io::store_file, hash_db::HashDB},
 };
 
 use crate::commands::backup::backup_monitor::BackupEvent;
 
 pub fn walker_thread_task(
-    conifg: Config,
+    config: Config,
     old_snapshot: &Snapshot,
-    store: Store,
+    data_store_cache: Arc<HashDB>,
     event_tx: Sender<BackupEvent>,
     snapshot_tx: Sender<SnapshotDelta>,
 ) {
@@ -25,12 +25,13 @@ pub fn walker_thread_task(
         .build()
         .expect("Could not build worker pool");
 
-    for job in walk_all_files_in_backup_roots(&conifg, old_snapshot) {
+    for job in walk_all_files_in_backup_roots(&config, old_snapshot) {
         match job {
             Ok(job) => {
-                let store_clone = store.clone();
                 let event_tx_clone = event_tx.clone();
                 let snapshot_tx_clone = snapshot_tx.clone();
+                let config = config.clone();
+                let data_store_cache = data_store_cache.clone();
 
                 // Worker closure
                 worker_pool.spawn(move || {
@@ -39,8 +40,8 @@ pub fn walker_thread_task(
                         WalkResult::UnchangedFile(snapshot_delta) => {
                             let _ = event_tx_clone.send(BackupEvent::NoChanges {
                                 worker: worker_id,
-                                path_id: snapshot_delta.path_identifier.clone(),
-                                root_id: snapshot_delta.root_id.clone(),
+                                path_id: snapshot_delta.file_id.clone(),
+                                root_id: snapshot_delta.root.name().to_owned(),
                             });
                             let _ = snapshot_tx_clone.send(snapshot_delta);
                         }
@@ -50,7 +51,7 @@ pub fn walker_thread_task(
                                 path: path.clone(),
                                 root_id: root.name().to_string(),
                             });
-                            match store_clone.store_file(&path, &root) {
+                            match store_file(&config, &data_store_cache, &path, &root) {
                                 Ok(delta) => {
                                     let _ = event_tx_clone.send(BackupEvent::FinishBackup {
                                         worker: worker_id,

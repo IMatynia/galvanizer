@@ -1,9 +1,10 @@
-use crate::snapshots::snapshot::{Snapshot, SnapshotError};
+use crate::snapshots::snapshot::{Snapshot, SnapshotError, SnapshotResult};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use galvanizer_config::Config;
 use log::debug;
 use std::{
-    fs,
+    ffi::OsStr,
+    fs::{self, read_dir},
     path::{Path, PathBuf},
 };
 
@@ -79,6 +80,19 @@ impl Snapshot {
         )
         .map_err(SnapshotError::SnapshotIOError)?;
         Ok(())
+    }
+
+    pub fn load_all_snapshot_ids(config: &Config) -> SnapshotResult<impl Iterator<Item = String>> {
+        let snapshots_dir = config
+            .get_snaphots_path()
+            .map_err(SnapshotError::ConfigError)?;
+        Ok(read_dir(snapshots_dir)
+            .map_err(SnapshotError::SnapshotIOError)?
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry.path().is_file() && entry.path().extension() == Some(OsStr::new("toml"))
+            })
+            .filter_map(|entry| entry.path().file_stem().map(|s| s.display().to_string())))
     }
 
     pub fn load_by_id_or_latest(

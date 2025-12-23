@@ -17,9 +17,9 @@ pub struct RestoreArgs {
     pub delete_new_files: bool,
 }
 
-impl From<RestoreArgs> for snapshot_walker::RestoreArgs {
+impl From<RestoreArgs> for snapshot_walker::SnapshotWalkerFilter {
     fn from(val: RestoreArgs) -> Self {
-        snapshot_walker::RestoreArgs {
+        snapshot_walker::SnapshotWalkerFilter {
             snapshot_id: val.snapshot_id,
             root_id: val.root_id,
             file_id: val.file_id,

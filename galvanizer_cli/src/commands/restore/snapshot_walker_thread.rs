@@ -3,9 +3,9 @@ use std::thread::available_parallelism;
 use crossbeam::channel::Sender;
 use galvanizer_config::Config;
 use galvanizer_store::{
-    snapshot_walker::{self, RestoreArgs},
+    snapshot_walker::{self, SnapshotWalkerFilter, SnapshotWalkerItem},
     snapshots::snapshot::Snapshot,
-    store_cache_data_handler::uncompress_and_restore,
+    store_cache::file_io::restore_file,
 };
 
 use crate::commands::restore::restore_monitor::RestoreEvent;
@@ -14,7 +14,7 @@ pub fn snapshot_walker_task(
     config: Config,
     event_tx: Sender<RestoreEvent>,
     snapshot: Snapshot,
-    restoration_options: RestoreArgs,
+    restoration_options: SnapshotWalkerFilter,
 ) {
     let cores = available_parallelism().map(|x| x.get()).unwrap_or(1);
 
@@ -24,41 +24,43 @@ pub fn snapshot_walker_task(
         .build()
         .expect("Could not build worker pool");
 
-    for job in snapshot_walker::walk_all_files_in_snapshot(&config, &snapshot, &restoration_options)
+    for job in snapshot_walker::walk_all_files_in_snapshot_filtered(&snapshot, &restoration_options)
     {
         match job {
-            Ok(job_details) => {
+            Ok(job_detail) => {
                 let event_tx = event_tx.clone();
                 let config = config.clone();
 
+                let SnapshotWalkerItem {
+                    root_id,
+                    path: destination,
+                    hash_str,
+                } = job_detail;
+
                 worker_pool.spawn(move || {
                     let worker_id = std::thread::current().name().unwrap_or("MAIN").to_string();
-                    match job_details {
-                        snapshot_walker::SnapshotWalkerJob::RestoreFile {
-                            destination,
-                            hash_str,
-                        } => {
-                            let _ = event_tx.send(RestoreEvent::StartRestore {
-                                worker: worker_id.clone(),
-                                destination: destination.clone(),
-                            });
+                    let _ = event_tx.send(RestoreEvent::StartRestore {
+                        root_id: root_id.clone(),
+                        worker: worker_id.clone(),
+                        destination: destination.clone(),
+                    });
 
-                            match uncompress_and_restore(&config, &destination, &hash_str) {
-                                Ok(bytes_restored) => {
-                                    let _ = event_tx.send(RestoreEvent::FinishRestore {
-                                        worker: worker_id,
-                                        bytes_restored,
-                                        destination,
-                                    });
-                                }
-                                Err(e) => {
-                                    let _ = event_tx.send(RestoreEvent::RestoreError {
-                                        worker: worker_id,
-                                        error: e,
-                                        destination,
-                                    });
-                                }
-                            }
+                    match restore_file(&config, &destination, &hash_str) {
+                        Ok(bytes_restored) => {
+                            let _ = event_tx.send(RestoreEvent::FinishRestore {
+                                root_id,
+                                worker: worker_id,
+                                bytes_restored,
+                                destination,
+                            });
+                        }
+                        Err(e) => {
+                            let _ = event_tx.send(RestoreEvent::RestoreError {
+                                root_id,
+                                worker: worker_id,
+                                error: e,
+                                destination,
+                            });
                         }
                     }
                 });

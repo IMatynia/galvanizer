@@ -114,6 +114,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
 
 [[package]]
+name = "bytesize"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bd91ee7b2422bcb158d90ef4d14f75ef67f340943fc4149891dcce8f8b972a3"
+
+[[package]]
 name = "cc"
 version = "1.2.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -392,6 +398,7 @@ checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 name = "galvanizer_cli"
 version = "0.1.0"
 dependencies = [
+ "bytesize",
  "clap",
  "console",
  "crossbeam",

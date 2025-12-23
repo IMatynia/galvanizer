@@ -11,5 +11,5 @@ pub enum PruneCommands {
     /// Remove data that is not assigned to any of the snapshots
     UnusedData,
     /// Keeps last N snapshots
-    KeepSnapshots { n: u32 },
+    KeepSnapshots { n: usize },
 }

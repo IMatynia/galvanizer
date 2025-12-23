@@ -1,22 +1,40 @@
 use crate::snapshots::shapshot_entry::SnapshotEntry;
-use galvanizer_config::config::ConfigError;
+use galvanizer_config::{config::ConfigError, root_definition::RootDefinition};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, io};
 
-pub type RootSnapshotEntries = HashMap<String, SnapshotEntry>;
+#[derive(Deserialize, Serialize)]
+pub struct RootSnapshotEntries {
+    entries: HashMap<String, SnapshotEntry>,
+    root_definition: RootDefinition,
+}
+
+impl RootSnapshotEntries {
+    pub fn entries(&self) -> &HashMap<String, SnapshotEntry> {
+        &self.entries
+    }
+
+    pub fn entries_mut(&mut self) -> &mut HashMap<String, SnapshotEntry> {
+        &mut self.entries
+    }
+
+    pub fn root_definition(&self) -> &RootDefinition {
+        &self.root_definition
+    }
+}
 
 /// Represents all saved information for all roots. Contains a map that assigns a map of snapshot entries to each root and their file id.
 #[derive(Deserialize, Serialize)]
 pub struct Snapshot {
     /// The key is the root id and it points to a map of snapshot entries, where the key is the relative path and the value is a SnapshotEntry.
-    entries: HashMap<String, RootSnapshotEntries>,
+    roots: HashMap<String, RootSnapshotEntries>,
 }
 
 impl Debug for Snapshot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = f.debug_struct("snapshot");
-        for (root_id, entries) in &self.entries {
-            for (file_id, entry) in entries {
+        for (root_id, entries) in &self.roots {
+            for (file_id, entry) in entries.entries() {
                 s.field(&format!("{root_id} - {file_id}"), entry);
             }
         }
@@ -30,7 +48,7 @@ impl Snapshot {
     }
 
     pub fn new(entries: HashMap<String, RootSnapshotEntries>) -> Self {
-        Self { entries }
+        Self { roots: entries }
     }
 
     pub fn get_entry_for_file_in_root(
@@ -38,19 +56,23 @@ impl Snapshot {
         root_id: &str,
         file_id: &str,
     ) -> Option<&SnapshotEntry> {
-        self.entries.get(root_id)?.get(file_id)
+        self.roots.get(root_id)?.entries().get(file_id)
     }
 
-    pub fn get_root_entries_mut(&mut self, root_id: &str) -> &mut RootSnapshotEntries {
-        self.entries.entry(root_id.to_string()).or_default()
+    pub fn get_root_entries_mut(
+        &mut self,
+        root_definition: RootDefinition,
+    ) -> &mut RootSnapshotEntries {
+        self.roots
+            .entry(root_definition.name().to_string())
+            .or_insert(RootSnapshotEntries {
+                entries: HashMap::new(),
+                root_definition,
+            })
     }
 
-    pub fn get_root_ids(&self) -> impl Iterator<Item = &String> {
-        self.entries.keys()
-    }
-
-    pub fn get_rel_paths_for_root(&self, root_id: &str) -> Option<impl Iterator<Item = &String>> {
-        Some(self.entries.get(root_id)?.keys())
+    pub fn get_roots(&self) -> &HashMap<String, RootSnapshotEntries> {
+        &self.roots
     }
 }
 
@@ -63,3 +85,5 @@ pub enum SnapshotError {
     SnapshotDeserializationError(toml::de::Error),
     ConfigError(ConfigError),
 }
+
+pub type SnapshotResult<T> = Result<T, SnapshotError>;

@@ -17,7 +17,7 @@ mod tests {
     use galvanizer_config::{
         Config, root_definition::RootDefinition, store_preferences::StorePreferences,
     };
-    use galvanizer_store::snapshot_walker::RestoreArgs;
+    use galvanizer_store::snapshot_walker::SnapshotWalkerFilter;
     use tempfile::tempdir;
 
     fn make_config_basic(data_root: PathBuf, store_root: PathBuf) -> Config {
@@ -51,7 +51,7 @@ mod tests {
 
         restore_command(
             config.clone(),
-            RestoreArgs {
+            SnapshotWalkerFilter {
                 snapshot_id: None,
                 root_id: None,
                 file_id: None,
@@ -87,7 +87,7 @@ mod tests {
 
         restore_command(
             config.clone(),
-            RestoreArgs {
+            SnapshotWalkerFilter {
                 snapshot_id: None,
                 root_id: None,
                 file_id: None,
@@ -123,7 +123,7 @@ mod tests {
 
         restore_command(
             config.clone(),
-            RestoreArgs {
+            SnapshotWalkerFilter {
                 snapshot_id: None,
                 root_id: None,
                 file_id: Some("*.a".into()),

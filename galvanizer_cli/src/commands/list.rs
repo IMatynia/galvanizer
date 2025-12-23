@@ -1,33 +1,19 @@
-use std::{fs::read_dir, io};
-
 use crate::{
     cli_errors::{CLIError, CLIResult},
     schemas::list::ListCommands,
 };
 use galvanizer_config::Config;
-use galvanizer_store::snapshots::snapshot::{Snapshot, SnapshotError};
-
-fn snapshot_io_error(e: io::Error) -> CLIError {
-    CLIError::SnapshotError(SnapshotError::SnapshotIOError(e))
-}
+use galvanizer_store::snapshots::snapshot::Snapshot;
 
 pub fn run(config: Config, command_options: ListCommands) -> CLIResult<()> {
     match command_options {
         ListCommands::Snapshots => {
             let snapshots_dir = config.get_snaphots_path().map_err(CLIError::ConfigError)?;
             println!("All stored snapshots in {}:", snapshots_dir.display());
-            for snapshot_path in read_dir(snapshots_dir)
-                .map_err(snapshot_io_error)?
-                .map(|d| d.map_err(snapshot_io_error))
+            for snapshot_id in
+                Snapshot::load_all_snapshot_ids(&config).map_err(CLIError::SnapshotError)?
             {
-                match snapshot_path {
-                    Ok(entry) => {
-                        if let Some(stem) = entry.path().file_stem() {
-                            println!("{}", stem.display());
-                        }
-                    }
-                    Err(e) => eprintln!("{e:?}"),
-                }
+                println!("{}", snapshot_id);
             }
         }
         ListCommands::Roots { snapshot_id } => {
@@ -38,7 +24,7 @@ pub fn run(config: Config, command_options: ListCommands) -> CLIResult<()> {
                 "All roots for snapshot {}:",
                 snapshot_id.unwrap_or("LATEST".into())
             );
-            for root in snapshot.get_root_ids() {
+            for root in snapshot.get_roots().keys() {
                 println!("{root}");
             }
         }
@@ -53,7 +39,11 @@ pub fn run(config: Config, command_options: ListCommands) -> CLIResult<()> {
                 "All files in root {root_id} for snapshot {}:",
                 snapshot_id.unwrap_or("LATEST".into())
             );
-            if let Some(files) = snapshot.get_rel_paths_for_root(&root_id) {
+            if let Some(files) = snapshot
+                .get_roots()
+                .get(&root_id)
+                .map(|root_entry| root_entry.entries().keys())
+            {
                 for file_id in files {
                     println!("{file_id}");
                 }

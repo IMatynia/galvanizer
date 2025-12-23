@@ -1,6 +1,6 @@
 use crossbeam::channel::Receiver;
 use galvanizer_store::{
-    snapshot_walker::SnapshotWalkerErr, store_cache_data_handler::CacheHandlerError,
+    snapshot_walker::SnapshotWalkerErr, store_cache::file_io::CacheHandlerError,
 };
 use log::info;
 use std::path::PathBuf;
@@ -9,23 +9,22 @@ use std::path::PathBuf;
 pub enum RestoreEvent {
     StartRestore {
         worker: String,
+        root_id: String,
         destination: PathBuf,
     },
     RestoreError {
         worker: String,
         error: CacheHandlerError,
+        root_id: String,
         destination: PathBuf,
     },
     FinishRestore {
         worker: String,
         bytes_restored: u64,
+        root_id: String,
         destination: PathBuf,
     },
     WalkerError(SnapshotWalkerErr),
-    NoChanges {
-        worker: String,
-        destination: PathBuf,
-    },
 }
 
 pub fn restore_monitor_task(event_rx: Receiver<RestoreEvent>) {

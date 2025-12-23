@@ -2,7 +2,7 @@ use std::io;
 
 use galvanizer_config::config::ConfigError;
 
-use crate::store_cache_data_handler::CacheHandlerError;
+use crate::store_cache::file_io::CacheHandlerError;
 
 #[derive(Debug)]
 pub enum StoreError {

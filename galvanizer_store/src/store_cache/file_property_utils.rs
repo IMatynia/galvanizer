@@ -33,7 +33,7 @@ pub fn get_file_last_modified_date(path: &Path) -> Result<DateTime<Utc>, io::Err
 
 #[cfg(test)]
 mod tests {
-    use crate::{store_cache_tools::evaluate_file_sha512_hash, tests::resources};
+    use crate::{store_cache::file_property_utils::evaluate_file_sha512_hash, tests::resources};
 
     #[test]
     fn test_empty_file_hash() {

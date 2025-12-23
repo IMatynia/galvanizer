@@ -4,13 +4,14 @@ use galvanizer_store::snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snaps
 pub fn snapshot_builder_task(snapshot_rx: Receiver<SnapshotDelta>) -> Snapshot {
     let mut snapshot = Snapshot::empty();
     while let Ok(SnapshotDelta {
-        root_id,
-        path_identifier,
+        root,
+        file_id: path_identifier,
         entry,
     }) = snapshot_rx.recv()
     {
         snapshot
-            .get_root_entries_mut(&root_id)
+            .get_root_entries_mut(root)
+            .entries_mut()
             .insert(path_identifier, entry);
     }
     snapshot

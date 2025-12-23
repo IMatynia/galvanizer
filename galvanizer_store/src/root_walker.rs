@@ -1,6 +1,6 @@
 use crate::{
     snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
-    store_cache_tools::get_file_last_modified_date,
+    store_cache::file_property_utils::get_file_last_modified_date,
 };
 use either::Either;
 use galvanizer_config::{Config, config::ConfigError, root_definition::RootDefinition};
@@ -90,8 +90,8 @@ pub fn walk_all_files_in_backup_roots<'a>(
                         && fs_last_modified <= entry.last_modified()
                     {
                         let coppied_entry = SnapshotDelta {
-                            root_id: root.name().to_string(),
-                            path_identifier: path_identifier.to_string(),
+                            root: root.clone(),
+                            file_id: path_identifier.to_string(),
                             entry,
                         };
                         return Some(Ok(WalkResult::UnchangedFile(coppied_entry)));

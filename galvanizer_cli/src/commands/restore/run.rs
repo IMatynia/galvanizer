@@ -7,9 +7,9 @@ use crate::{
 };
 use crossbeam::thread;
 use galvanizer_config::Config;
-use galvanizer_store::{snapshot_walker::RestoreArgs, snapshots::snapshot::Snapshot};
+use galvanizer_store::{snapshot_walker::SnapshotWalkerFilter, snapshots::snapshot::Snapshot};
 
-pub fn restore_command(config: Config, restoration_options: RestoreArgs) -> CLIResult<()> {
+pub fn restore_command(config: Config, restoration_options: SnapshotWalkerFilter) -> CLIResult<()> {
     if restoration_options.delete_new_files {
         todo!("Currently the delete-new-files option is not available!");
     }

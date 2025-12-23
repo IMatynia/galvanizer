@@ -111,7 +111,7 @@ impl Config {
         &self.backup_roots
     }
 
-    pub fn find_root_by_id(&self, id: &str) -> Option<&RootDefinition> {
+    fn find_root_by_id(&self, id: &str) -> Option<&RootDefinition> {
         self.backup_roots().iter().find(|r| r.name() == id)
     }
 

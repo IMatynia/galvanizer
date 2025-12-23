@@ -4,7 +4,16 @@ use std::{
     path::Path,
 };
 
-use galvanizer_config::{Config, config::ConfigError};
+use galvanizer_config::{Config, config::ConfigError, root_definition::RootDefinition};
+
+use crate::{
+    snapshots::{shapshot_delta::SnapshotDelta, shapshot_entry::SnapshotEntry},
+    store_cache::{
+        file_property_utils::{evaluate_file_sha512_hash, get_file_last_modified_date},
+        hash_db::HashDB,
+    },
+    store_error::{StoreError, StoreResult},
+};
 
 #[derive(Debug)]
 pub enum CacheHandlerError {
@@ -15,7 +24,7 @@ pub enum CacheHandlerError {
 
 pub type CacheHandlerResult<T> = Result<T, CacheHandlerError>;
 
-pub fn compress_and_store_file(
+fn compress_and_store_file(
     config: &Config,
     path: &Path,
     hash_str: &str,
@@ -36,7 +45,40 @@ pub fn compress_and_store_file(
     io::copy(&mut input, &mut output_compressed).map_err(CacheHandlerError::ErrorDuringCompression)
 }
 
-pub fn uncompress_and_restore(
+pub fn store_file(
+    config: &Config,
+    data_store_cache: &HashDB,
+    path: &Path,
+    parent_root: &RootDefinition,
+) -> StoreResult<SnapshotDelta> {
+    // Query for last modified date
+    let fs_last_modified =
+        get_file_last_modified_date(path).map_err(StoreError::FileMetadataError)?;
+
+    // Get path identifier str
+    let path_identifier = parent_root
+        .make_path_identifier(path)
+        .map_err(StoreError::PathIdentifierError)?;
+
+    // Read file hash
+    let hash_str = evaluate_file_sha512_hash(path).map_err(StoreError::ErrorDuringHashEval)?;
+    if hash_str.is_empty() {
+        return Err(StoreError::CriticalHashError);
+    }
+
+    // heavy lifting - exclusive access to data_store_cache for checking and updating contents
+    if data_store_cache.insert(hash_str.clone()) {
+        // Compress and store the file
+        compress_and_store_file(config, path, &hash_str).map_err(StoreError::CacheHandlerError)?;
+    }
+
+    Ok(SnapshotDelta {
+        root: parent_root.clone(),
+        file_id: path_identifier.to_string(),
+        entry: SnapshotEntry::new(hash_str, fs_last_modified),
+    })
+}
+pub fn restore_file(
     config: &Config,
     destination_path: &Path,
     hash_str: &str,
