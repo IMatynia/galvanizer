@@ -31,28 +31,11 @@ fn restore_a_file(
     restoration_options: &RestoreArgs,
     config: &Config,
 ) -> Result<(), RestoreErr> {
-    let hash_str = snapshot
-        .get_entry_for_file_in_root(parent_root.name(), file_id)
-        .ok_or(RestoreErr::StoreEntryNotFound)?
-        .data_hash()
-        .to_string();
-
-    let destination = original_file_path_from_identifier(file_id, parent_root);
-    let file_currently_exists = destination.exists();
+    
 
     debug!("Checking file {destination:?} for restoration from hash {hash_str}");
 
-    if file_currently_exists && restoration_options.dont_overwrite_files {
-        return Err(RestoreErr::SkipBecauseCannotOverwrite);
-    }
 
-    if !file_currently_exists && restoration_options.skip_missing_file_restore {
-        return Err(RestoreErr::SkipBecauseMissingFile);
-    }
-
-    if restoration_options.delete_new_files {
-        todo!("Option delete new files is not implemented!");
-    }
 
     debug!("Restoring file {destination:?}");
     uncompress_and_restore(config, &destination, &hash_str)

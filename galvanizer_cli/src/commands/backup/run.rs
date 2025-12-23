@@ -1,8 +1,9 @@
 use crate::{
     cli_errors::{CLIError, CLIResult},
     commands::backup::{
-        backup_command_schemas::BackupEvent, backup_monitor::backup_monitor_task,
-        snapshot_builder::snapshot_builder_task, walker_thread::walker_thread_task,
+        backup_monitor::{BackupEvent, backup_monitor_task},
+        root_walker_thread::walker_thread_task,
+        snapshot_builder::snapshot_builder_task,
     },
 };
 use crossbeam::thread;
@@ -11,7 +12,6 @@ use galvanizer_store::{
     snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
     store::StoreBuilder,
 };
-use log::error;
 
 pub fn backup_command(config: Config) -> CLIResult<()> {
     let old_snapshot =
@@ -32,12 +32,8 @@ pub fn backup_command(config: Config) -> CLIResult<()> {
         let monitor_thread = s.spawn(move |_| backup_monitor_task(event_rx));
         let snapshot_builder_thread = s.spawn(move |_| snapshot_builder_task(snapshot_rx));
 
-        if let Err(e) = walker_thread.join() {
-            error!("Failed to join walker thread: {e:?}");
-        }
-        if let Err(e) = monitor_thread.join() {
-            error!("Failed to join monitor thread: {e:?}");
-        }
+        let _ = walker_thread.join();
+        let _ = monitor_thread.join();
         snapshot_builder_thread.join()
     });
 

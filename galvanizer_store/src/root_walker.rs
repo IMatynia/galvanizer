@@ -1,6 +1,6 @@
 use crate::{
     snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
-    store_cache_tools::{get_file_last_modified_date, get_path_identifier},
+    store_cache_tools::get_file_last_modified_date,
 };
 use either::Either;
 use galvanizer_config::{Config, config::ConfigError, root_definition::RootDefinition};
@@ -73,7 +73,7 @@ pub fn walk_all_files_in_backup_roots<'a>(
                         return None;
                     }
 
-                    let path_identifier = match get_path_identifier(&path, &root) {
+                    let path_identifier = match root.make_path_identifier(&path) {
                         Ok(id) => id,
                         Err(e) => return Some(Err(WalkerError::PathIdentifierError(e))),
                     };

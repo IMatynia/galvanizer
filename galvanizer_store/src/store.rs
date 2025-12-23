@@ -25,9 +25,7 @@ use std::{
 use crate::{
     snapshots::{shapshot_delta::SnapshotDelta, shapshot_entry::SnapshotEntry},
     store_cache_data_handler::compress_and_store_file,
-    store_cache_tools::{
-        evaluate_file_sha512_hash, get_file_last_modified_date, get_path_identifier,
-    },
+    store_cache_tools::{evaluate_file_sha512_hash, get_file_last_modified_date},
     store_error::{StoreError, StoreResult},
 };
 use dashmap::DashSet;
@@ -104,8 +102,9 @@ impl Store {
             get_file_last_modified_date(path).map_err(StoreError::FileMetadataError)?;
 
         // Get path identifier str
-        let path_identifier =
-            get_path_identifier(path, parent_root).map_err(StoreError::PathIdentifierError)?;
+        let path_identifier = parent_root
+            .make_path_identifier(path)
+            .map_err(StoreError::PathIdentifierError)?;
 
         // Read file hash
         let hash_str = evaluate_file_sha512_hash(path).map_err(StoreError::ErrorDuringHashEval)?;

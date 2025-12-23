@@ -428,6 +428,7 @@ dependencies = [
  "either",
  "env_logger",
  "galvanizer_config",
+ "globset",
  "log",
  "map-macro",
  "serde",

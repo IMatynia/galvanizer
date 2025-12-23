@@ -4,8 +4,7 @@ mod tests {
 
     use crate::{
         VERSION,
-        commands::{backup::run::backup_command, restore},
-        schemas::restore::RestoreArgs,
+        commands::{backup::run::backup_command, restore::run::restore_command},
         tests::{
             fs_utils::{
                 TestFile, assert_files_are_correct, assert_files_are_missing, build_file_structure,
@@ -18,6 +17,7 @@ mod tests {
     use galvanizer_config::{
         Config, root_definition::RootDefinition, store_preferences::StorePreferences,
     };
+    use galvanizer_store::snapshot_walker::RestoreArgs;
     use tempfile::tempdir;
 
     fn make_config_basic(data_root: PathBuf, store_root: PathBuf) -> Config {
@@ -49,7 +49,7 @@ mod tests {
 
         clean_ws(&data_root);
 
-        restore::run(
+        restore_command(
             config.clone(),
             RestoreArgs {
                 snapshot_id: None,
@@ -85,7 +85,7 @@ mod tests {
 
         clean_ws(&data_root);
 
-        restore::run(
+        restore_command(
             config.clone(),
             RestoreArgs {
                 snapshot_id: None,
@@ -121,7 +121,7 @@ mod tests {
 
         clean_ws(&data_root);
 
-        restore::run(
+        restore_command(
             config.clone(),
             RestoreArgs {
                 snapshot_id: None,

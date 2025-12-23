@@ -1,6 +1,5 @@
 use std::thread::available_parallelism;
 
-use crate::commands::backup::backup_command_schemas::BackupEvent;
 use crossbeam::channel::Sender;
 use galvanizer_config::Config;
 use galvanizer_store::{
@@ -8,6 +7,8 @@ use galvanizer_store::{
     snapshots::{shapshot_delta::SnapshotDelta, snapshot::Snapshot},
     store::Store,
 };
+
+use crate::commands::backup::backup_monitor::BackupEvent;
 
 pub fn walker_thread_task(
     conifg: Config,

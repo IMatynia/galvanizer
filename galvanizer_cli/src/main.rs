@@ -1,7 +1,7 @@
 use clap::{CommandFactory, Parser, Subcommand, error::ErrorKind};
 use galvanizer_cli::{
     cli_errors::CLIError,
-    commands::{backup::run::backup_command, list, restore},
+    commands::{backup::run::backup_command, list, restore::run::restore_command},
     configuration_loading::{ConfigLoadingErrors, load_app_config},
     first_time_config_prompt::first_time_config_customization_prompt,
     schemas::{
@@ -97,7 +97,7 @@ fn run(cli: Cli) {
     // cli commands parsing
     if let Err(e) = match cli.command {
         Commands::Backup => backup_command(config),
-        Commands::Restore(args) => restore::run(config, args),
+        Commands::Restore(args) => restore_command(config, args.into()),
         Commands::List(list_args) => list::run(config, list_args.command),
         Commands::Prune(prune_args) => match prune_args.command {
             PruneCommands::UnusedData => todo!(),

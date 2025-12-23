@@ -1,4 +1,5 @@
 use clap::Args;
+use galvanizer_store::snapshot_walker;
 
 #[derive(Debug, Args)]
 pub struct RestoreArgs {
@@ -14,4 +15,17 @@ pub struct RestoreArgs {
     pub skip_missing_file_restore: bool,
     /// This option makes it so that files that are on the disk but are not in the backup at all will be deleted, to restore the file structure faithfully.
     pub delete_new_files: bool,
+}
+
+impl From<RestoreArgs> for snapshot_walker::RestoreArgs {
+    fn from(val: RestoreArgs) -> Self {
+        snapshot_walker::RestoreArgs {
+            snapshot_id: val.snapshot_id,
+            root_id: val.root_id,
+            file_id: val.file_id,
+            dont_overwrite_files: val.dont_overwrite_files,
+            skip_missing_file_restore: val.skip_missing_file_restore,
+            delete_new_files: val.delete_new_files,
+        }
+    }
 }

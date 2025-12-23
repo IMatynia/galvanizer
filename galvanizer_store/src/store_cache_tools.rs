@@ -1,11 +1,10 @@
 use base64::{Engine as _, engine::general_purpose::URL_SAFE};
 use chrono::{DateTime, Utc};
-use galvanizer_config::root_definition::RootDefinition;
 use sha2::{Digest, Sha512};
 use std::{
     fs::File,
     io::{self, Read},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 // Returns a base64 encoded sha512 of the provided file
@@ -30,24 +29,6 @@ pub fn evaluate_file_sha512_hash(path: &Path) -> Result<String, io::Error> {
 pub fn get_file_last_modified_date(path: &Path) -> Result<DateTime<Utc>, io::Error> {
     let fs_last_modified: DateTime<Utc> = path.metadata()?.modified()?.into();
     Ok(fs_last_modified)
-}
-
-pub fn get_path_identifier<'a>(
-    path: &'a Path,
-    parent_root: &RootDefinition,
-) -> Result<&'a str, &'static str> {
-    let path_short = path
-        .strip_prefix(parent_root.path())
-        .map_err(|_| "File is not within the current root directory!")?;
-    let path_identifier = path_short
-        .as_os_str()
-        .to_str()
-        .ok_or("Failed to read path as utf-8 string")?;
-    Ok(path_identifier)
-}
-
-pub fn original_file_path_from_identifier(file_id: &str, parent_root: &RootDefinition) -> PathBuf {
-    parent_root.path().clone().join(file_id)
 }
 
 #[cfg(test)]
